@@ -1,0 +1,284 @@
+---
+title: "Controle de cancelamentos"
+output: slidy_presentation
+date: "2023-07-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(qcc)
+library(readxl)
+library(lubridate)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(ggQC)
+library(data.table)
+
+#Leitura da base
+Cancelamentos_2022_a_2023_junho <- read_excel("G:/Drives compartilhados/3-CCD/25 Data Stewards/4 - Opióides/Cancelamentos  2022 a 2023 junho enfe.xlsx", 
+    col_types = c("text", "text", "text", 
+        "date", "date", "text", "numeric", 
+        "text", "numeric", "numeric", "text", 
+        "numeric", "text", "numeric", "numeric", 
+        "text", "numeric", "numeric", "numeric", 
+        "numeric"))  %>% 
+  filter(Estacion != "NA") %>% 
+  mutate(
+    dispensario = fct_collapse(Estacion,
+                             PYXIS5_N = c("PYXIS5N","PYXIS5NB"),
+                             PYXIS5_S = c("PYXIS5S","PYXIS5SB"),
+                             PYXIS6_N = c("PYXIS6N","PYXIS6NB"),
+                             PYXIS6_S = c("PYXIS6S","PYXIS6SB"),
+                             PYXIS7_N = c("PYXIS7N","PYXIS7NB")
+                             )
+   # hora = as.numeric(hour(Hora)),
+   # faixa_hora = if_else(hour(Hora)<=7,"0 a 7",
+   #                           if_else(hour(Hora)<=19, "8 a 19",
+   #                                   "20 a 24"))
+    ) 
+
+#Lista com usuários ligados a Farmácia
+usuarios_farmacia <- c("Deliberal, Ana",
+                       "Benfica, Guilherme",
+                       "Cas, Franciele",
+                       "Faleiro, Aline",
+                       "Heider, Janaina",
+                       "Jardim, Marcelo",
+                       "Loureiro, Bruna",
+                       "Oliveira, Carmen",
+                       "Pereira, Maria",
+                       "Pinto, Victoria",
+                       "Schenini, Lucia",
+                       "Silva, Rosita",
+                       "Vieira, Aline",
+                       "Brasil, Grifols")
+
+# armazena o número de cancelamentos por usuário, por dia e por dispensário
+Cancelamentos_usuario_dia <- Cancelamentos_2022_a_2023_junho %>% 
+  filter(Clase != "99",
+         !Usuario %in% usuarios_farmacia) %>% 
+  select(dispensario,Clase,Fecha,Usuario) %>%
+  group_by(dispensario,Clase,Fecha,Usuario) %>% 
+  summarize(n=n()) 
+
+# armazena o número de usuários por dia e por dispensário
+usuarios_dia <- Cancelamentos_2022_a_2023_junho %>% 
+  filter(Clase != "99",
+         !Usuario %in% usuarios_farmacia) %>% 
+  select(dispensario,Clase,Fecha,Usuario) %>%
+  group_by(dispensario,Clase,Fecha,Usuario) %>% 
+  summarize(n=n()) %>% 
+  count(Fecha) %>% 
+  rename(n_usuarios = n)
+
+# armazena o número de cancelamentos por dia e por dispensário
+cancelamentos_dia <- Cancelamentos_2022_a_2023_junho %>% 
+     filter(Clase != "99",
+         !Usuario %in% usuarios_farmacia) %>% 
+     select(dispensario,Clase,Fecha,Usuario) %>%
+     count(dispensario,Clase,Fecha)%>% 
+     rename(n_cancelamentos = n)
+
+
+Cancelamentos_reduzido <- full_join(usuarios_dia, cancelamentos_dia)
+
+# armazena o número de cancelamentos por usuário, por dia e por dispensário
+Cancelamentos_usuario_dia_geral <- Cancelamentos_2022_a_2023_junho %>% 
+  filter(Clase != "99",
+         !Usuario %in% usuarios_farmacia) %>% 
+  select(Clase,Fecha,Usuario) %>%
+  group_by(Clase,Fecha,Usuario) %>% 
+  summarize(n=n()) 
+
+# armazena o número de usuários por dia e por dispensário
+usuarios_dia_geral <- Cancelamentos_2022_a_2023_junho %>% 
+  filter(Clase != "99",
+         !Usuario %in% usuarios_farmacia) %>% 
+  select(Clase,Fecha,Usuario) %>%
+  group_by(Clase,Fecha,Usuario) %>% 
+  summarize(n=n()) %>% 
+  count(Fecha) %>% 
+  rename(n_usuarios = n)
+
+# armazena o número de cancelamentos por dia e por dispensário
+cancelamentos_dia_geral <- Cancelamentos_2022_a_2023_junho %>% 
+     filter(Clase != "99",
+         !Usuario %in% usuarios_farmacia) %>% 
+     select(Clase,Fecha,Usuario) %>%
+     count(Clase,Fecha)%>% 
+     rename(n_cancelamentos = n)
+
+
+Cancelamentos_reduzido_geral <- full_join(usuarios_dia_geral, cancelamentos_dia_geral)
+
+write.csv(Cancelamentos_reduzido,file = "teste.csv")
+#save(Cancelamentos_reduzido, file = "Cancelamentos_reduzido.RData")
+save.image(file = "Cancelamentos_reduzido.RData")
+```
+
+
+
+## Gráfico de controle Xbar
+
+Não é adequado, pois são dados de contagem.
+
+```{r eval=FALSE, warning=FALSE, include=FALSE}
+XbarR <- ggplot(Cancelamentos_reduzido, aes(x = Fecha, y = n, group = 1)) +
+         stat_summary(fun = mean, geom = "point") +
+         stat_summary(fun = mean, geom = "line") +
+         stat_QC() 
+
+XbarR + stat_QC_labels()
+```
+
+```{r eval=FALSE, warning=FALSE, include=FALSE}
+
+XbarR <- ggplot(Cancelamentos_reduzido, aes(x = Fecha, y = n, group = 1)) +
+         stat_summary(fun = mean, geom = "point") +
+         stat_summary(fun = mean, geom = "line") +
+         stat_QC() + stat_QC_labels() +
+         # Show Individuals  
+         geom_point(alpha= 1/5) +
+         stat_QC(n=1, color.qc_limits = "orange") + 
+         stat_QC_labels(n=1, color.qc_limits = "orange")  +
+         facet_wrap(~ dispensario, ncol = 2)
+
+XbarR
+```
+
+## Gráfico de controle u
+
+Adequado para dados de contagem com tamanho de amostra diferente. Estou considerando o número de usuários como tamanho da amostra e os cancelamentos como defeitos/falhas.
+Site sobre gráficos de controle:  (https://towardsdatascience.com/quality-control-charts-x-bar-chart-r-chart-and-process-capability-analysis-96caa9d9233e)
+
+Códigos usados extraídos de: http://rcontrolcharts.com/CPUNP_HOWTO.html#example_5_:_u_chart
+Este tipo de gráfico considera que não são dias consecutivos, mas não atribui zero para os dias em que não há cancelamentos.
+
+```{r warning=FALSE}
+CQC_u <- ggplot(Cancelamentos_reduzido, aes(x = Fecha, y = n_cancelamentos, n = n_usuarios)) +
+         geom_point() + geom_line() +
+         stat_QC(method = "u") 
+```
+
+```{r warning=FALSE}
+CQC_u <- Cancelamentos_reduzido %>% 
+  filter(dispensario == "PYXIS3L") %>% 
+  ggplot(aes(x = Fecha, y = n_cancelamentos, n = n_usuarios)) +
+         geom_point() + geom_line() +
+         stat_QC(method = "u") 
+
+
+CQC_u + stat_QC_labels()
+```
+O gráfico ´qcc´ considera como se fossem dias consecutivos.
+
+```{r}
+teste <- Cancelamentos_reduzido %>% 
+  filter(dispensario == "PYXIS3L")
+qu8 <- qcc(
+  teste$n_cancelamentos,
+  type = "u",
+  sizes = teste$n_usuarios,
+  rules = shewhart.rules
+)
+teste2<-qcc(
+  teste$n_cancelamentos,
+  type = "u",
+  sizes = teste$n_usuarios,
+  rules = shewhart.rules
+)$violations$beyond.limits
+
+qu8
+print(qu8)as_tibble(teste) %>% 
+ slice(teste2)
+
+teste[qu8$violations$beyond.limits,] 
+teste[qu8$violations[1],] 
+teste[qu8[11][[1]][1],] 
+
+violacoes <- function(X){
+  return(X$violations$beyond.limits)
+}
+violacoes(qcc(
+  teste$n_cancelamentos,
+  type = "u",
+  sizes = teste$n_usuarios,
+  rules = shewhart.rules
+))
+```
+
+
+Gráfico de Pareto para identificar usuários que fazem muitos cancelamentos
+
+```{r}
+a<-Cancelamentos_usuario_dia %>% 
+  filter(dispensario == "PYXIS3L") %>% 
+  group_by(Usuario) %>%
+  summarize(Total_cancelamentos = sum(n)) %>% 
+  ggplot(aes(x=Usuario, y=Total_cancelamentos)) +
+        theme(axis.text.x=element_text(angle=90,hjust=1, vjust=0.5)) +
+        stat_pareto() 
+
+#identificar top 10
+a$data %>% 
+  arrange(desc(Total_cancelamentos)) %>% 
+  head(10)
+```
+
+Tentativas de exibir a tabela no shiny
+
+```{r eval=FALSE, include=FALSE}
+violacao <- reactive({
+     violacoes(qcc(filtered_data()$n_cancelamentos,
+  type = "u",
+  sizes = filtered_data()$n_usuarios,
+  rules = c(1, 2, 3, 4)))
+   })
+
+   violacao <- reactive({
+     filtered_data() %>% 
+       slice(grafico()$violations$beyond.limits)
+   })
+   
+   violacao <- grafico()$violations$beyond.limits
+   
+   violacao <- reactive(
+    grafico()$violations$beyond.limits
+  )
+
+   
+   teste <- qcc(filtered_data()$n_cancelamentos,
+               type = "u",
+               sizes = filtered_data()$n_usuarios,
+               rules = c(1, 2, 3, 4))
+
+   violacao <- teste$violations$beyond.limits
+   
+   violacao <- reactive({
+     qcc(filtered_data()$n_cancelamentos,
+                  type = "u",
+                  sizes = filtered_data()$n_usuarios,
+                  rules = c(1, 2, 3, 4))$violations$beyond.limits
+   })
+   
+    violacao <- eventReactive(
+    novo<-qcc(filtered_data()$n_cancelamentos,
+        type = "u",
+        sizes = filtered_data()$n_usuarios,
+        rules = c(1, 2, 3, 4)),
+    {novo$violations[1]}
+  )
+
+```
+
+as_tibble(Cancelamentos_reduzido) %>% 
+        filter(dispensario == "PYXIS3L", 
+#               Fecha <= max(input$periodo) & Fecha >= min(input$periodo),
+               Clase == "MED(SC)")
+
+Acrescentar:
+* filtro por tipo de medicação. Ok
+* Filtrar os usuários que são da equipe. Ok
+* fazer painel geral com todos dispensários
+* Agrupar dispensários da mesma unidade
