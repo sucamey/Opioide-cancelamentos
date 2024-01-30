@@ -65,6 +65,18 @@ Cancelamentos_2022_a_2023_junho <- bind_rows(Cancelamentos_2022_a_2023_junho,
                                PYXIS6_N = c("PYXIS6N","PYXIS6NB"),
                                PYXIS6_S = c("PYXIS6S","PYXIS6SB"),
                                PYXIS7_N = c("PYXIS7N","PYXIS7NB")
+    ),
+    Tipo_opioide = case_when(
+      Codigo %in% c(16179,262463,189910,270362,304916,293548) ~"MORFINA",
+      Codigo %in% c(138975) ~ "ALFENTANIL",
+      Codigo %in% c(14435) ~ "CODEINA",
+      Codigo %in% c(295125,307904,306213,140767,115240,15091) ~ "FENTANIL",
+      Codigo %in% c(247286,271992,298942,247278) ~ "METADONA",
+      Codigo %in% c(168815,294771,293600,17272) ~ "MIDAZOLAM",
+      Codigo %in% c(17574) ~ "PETIDINA",
+      Codigo %in% c(268798) ~ "REMIFENTANIL",
+      Codigo %in% c(280046,154709) ~ "TRAMADOL",
+      TRUE ~ "OUTROS"
     )
     # hora = as.numeric(hour(Hora)),
     # faixa_hora = if_else(hour(Hora)<=7,"0 a 7",
